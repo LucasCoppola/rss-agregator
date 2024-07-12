@@ -41,7 +41,10 @@ func main() {
 	mux.HandleFunc("GET /v1/users", apiCfg.middlewareAuth(apiCfg.getUserHandler))
 	mux.HandleFunc("POST /v1/users", apiCfg.createUserHandler)
 
+	mux.HandleFunc("GET /v1/feeds", apiCfg.getFeedsHandler)
 	mux.HandleFunc("POST /v1/feeds", apiCfg.middlewareAuth(apiCfg.createFeedsHandler))
+	mux.HandleFunc("POST /v1/feed_follows", apiCfg.middlewareAuth(apiCfg.followFeedsHandler))
+	mux.HandleFunc("DELETE /v1/feed_follows/{feedFollowId}", apiCfg.middlewareAuth(apiCfg.unfollowFeedHandler))
 
 	mux.HandleFunc("GET /v1/healthz", healthzHandler)
 	mux.HandleFunc("GET /v1/err", errorHandler)
