@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/LucasCoppola/rss-aggregator/internal/database"
@@ -37,4 +38,18 @@ func (apiCfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	respondWithJson(w, http.StatusCreated, user)
+}
+
+func (apiCfg *apiConfig) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	header := r.Header.Get("Authorization")
+	apiKey := strings.TrimPrefix(header, "ApiKey ")
+
+	user, err := apiCfg.DB.GetUserByAPIKey(r.Context(), apiKey)
+
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Failed to get user")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, user)
 }
