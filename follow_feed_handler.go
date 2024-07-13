@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (apiCfg *apiConfig) followFeedsHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+func (apiCfg *apiConfig) followFeedHandler(w http.ResponseWriter, r *http.Request, user database.User) {
 	type parameters struct {
 		Feed_id uuid.UUID `json:"feed_id"`
 	}
@@ -58,4 +58,15 @@ func (apiCfg *apiConfig) unfollowFeedHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (apiCfg *apiConfig) getFollowedFeedsHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	userFeeds, err := apiCfg.DB.GetFollowedFeeds(r.Context(), user.ID)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to get followed feeds")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, userFeeds)
 }
