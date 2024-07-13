@@ -39,7 +39,25 @@ func (apiCfg *apiConfig) createFeedsHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	respondWithJson(w, http.StatusCreated, feed)
+	followFeed, err := apiCfg.DB.FollowFeed(r.Context(), database.FollowFeedParams{
+		ID:        uuid.New(),
+		FeedID:    feed.ID,
+		UserID:    user.ID,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	})
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to follow feed")
+		return
+	}
+
+	type feedResponse struct {
+		Feed       database.Feed     `json:"feed"`
+		FeedFollow database.FeedUser `json:"feed_follow"`
+	}
+
+	respondWithJson(w, http.StatusCreated, feedResponse{Feed: feed, FeedFollow: followFeed})
 }
 
 func (apiCfg *apiConfig) getFeedsHandler(w http.ResponseWriter, r *http.Request) {
