@@ -24,15 +24,14 @@ func (apiCfg *apiConfig) createFeedsHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	feed, err := apiCfg.DB.CreateFeed(r.Context(),
-		database.CreateFeedParams{
-			ID:        uuid.New(),
-			CreatedAt: time.Now().UTC(),
-			UpdatedAt: time.Now().UTC(),
-			Name:      params.Name,
-			Url:       params.Url,
-			UserID:    user.ID,
-		})
+	feed, err := apiCfg.DB.CreateFeed(r.Context(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		Name:      params.Name,
+		Url:       params.Url,
+		UserID:    user.ID,
+	})
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create feed")
@@ -53,11 +52,13 @@ func (apiCfg *apiConfig) createFeedsHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	type feedResponse struct {
-		Feed       database.Feed     `json:"feed"`
+		Feed       Feed              `json:"feed"`
 		FeedFollow database.FeedUser `json:"feed_follow"`
 	}
 
-	respondWithJson(w, http.StatusCreated, feedResponse{Feed: feed, FeedFollow: followFeed})
+	parsedFeed := databaseFeedToFeed(feed)
+
+	respondWithJson(w, http.StatusCreated, feedResponse{Feed: parsedFeed, FeedFollow: followFeed})
 }
 
 func (apiCfg *apiConfig) getFeedsHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,5 +69,11 @@ func (apiCfg *apiConfig) getFeedsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, feeds)
+	var parsedFeeds []Feed
+
+	for _, feed := range feeds {
+		parsedFeeds = append(parsedFeeds, databaseFeedToFeed(feed))
+	}
+
+	respondWithJson(w, http.StatusOK, parsedFeeds)
 }

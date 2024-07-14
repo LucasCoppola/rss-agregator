@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/LucasCoppola/rss-aggregator/internal/database"
 	"github.com/joho/godotenv"
@@ -55,6 +56,10 @@ func main() {
 		Addr:    ":" + PORT,
 		Handler: mux,
 	}
+
+	const collectionConcurrency = 10
+	const collectionInterval = time.Second * 5
+	go fetchFeedWorker(dbQueries, collectionConcurrency, collectionInterval)
 
 	log.Printf("Serving on port: %s\n", PORT)
 	log.Fatal(server.ListenAndServe())

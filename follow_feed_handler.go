@@ -23,7 +23,7 @@ func (apiCfg *apiConfig) followFeedHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	feed, err := apiCfg.DB.FollowFeed(r.Context(), database.FollowFeedParams{
+	follow_feed, err := apiCfg.DB.FollowFeed(r.Context(), database.FollowFeedParams{
 		ID:        uuid.New(),
 		FeedID:    params.Feed_id,
 		UserID:    user.ID,
@@ -36,7 +36,7 @@ func (apiCfg *apiConfig) followFeedHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	respondWithJson(w, http.StatusCreated, feed)
+	respondWithJson(w, http.StatusCreated, follow_feed)
 }
 
 func (apiCfg *apiConfig) unfollowFeedHandler(w http.ResponseWriter, r *http.Request, user database.User) {
