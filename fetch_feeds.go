@@ -17,12 +17,12 @@ type RSS struct {
 }
 
 type Channel struct {
-	Title string `xml:"title"`
-	// Link          string `xml:"link"`
-	// Description   string `xml:"description"`
-	// Language      string `xml:"language"`
-	// LastBuildDate string `xml:"lastBuildDate"`
-	// Items         []Item `xml:"item"`
+	Title         string `xml:"title"`
+	Link          string `xml:"link"`
+	Description   string `xml:"description"`
+	Language      string `xml:"language"`
+	LastBuildDate string `xml:"lastBuildDate"`
+	Items         []Item `xml:"item"`
 }
 
 type Item struct {
@@ -33,43 +33,26 @@ type Item struct {
 	Description string `xml:"description"`
 }
 
-func fetchFromFeed(url string) (RSS, error) {
-	res, err := http.Get(url)
-
-	if err != nil {
-		return RSS{}, fmt.Errorf("GET error: %v", err)
-	}
-
-	defer res.Body.Close()
-
-	decoder := xml.NewDecoder(res.Body)
-	var rss RSS
-	err = decoder.Decode(&rss)
-
-	if err != nil {
-		return RSS{}, fmt.Errorf("Decode data error: %v", err)
-	}
-
-	return rss, nil
-}
-
 func fetchFeedWorker(db *database.Queries, collectionConcurrency int, collectionInterval time.Duration) {
-	feeds, err := db.GetNextFeedsToFetch(context.Background(), int32(collectionConcurrency))
+	ticker := time.NewTicker(collectionInterval)
 
-	if err != nil {
-		log.Println("Couldn't get next feeds to fetch", err)
+	for range ticker.C {
+		feeds, err := db.GetNextFeedsToFetch(context.Background(), int32(collectionConcurrency))
+		if err != nil {
+			log.Println("Couldn't get next feeds to fetch", err)
+			continue
+		}
+
+		log.Printf("Found %v feeds to fetch!", len(feeds))
+
+		var wg sync.WaitGroup
+		for _, feed := range feeds {
+			wg.Add(1)
+			go scrapeFeed(db, &wg, feed)
+		}
+
+		wg.Wait()
 	}
-
-	log.Printf("Found %v feeds to fetch!", len(feeds))
-
-	var wg sync.WaitGroup
-	for _, feed := range feeds {
-		wg.Add(1)
-		go scrapeFeed(db, &wg, feed)
-	}
-
-	wg.Wait()
-	time.Sleep(collectionInterval)
 }
 
 func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
@@ -90,4 +73,24 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		UpdatedAt:     time.Now().UTC(),
 		ID:            feed.ID,
 	})
+}
+
+func fetchFromFeed(url string) (RSS, error) {
+	res, err := http.Get(url)
+
+	if err != nil {
+		return RSS{}, fmt.Errorf("GET error: %v", err)
+	}
+
+	defer res.Body.Close()
+
+	decoder := xml.NewDecoder(res.Body)
+	var rss RSS
+	err = decoder.Decode(&rss)
+
+	if err != nil {
+		return RSS{}, fmt.Errorf("Decode data error: %v", err)
+	}
+
+	return rss, nil
 }
