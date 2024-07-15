@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/LucasCoppola/rss-aggregator/internal/database"
+	"github.com/google/uuid"
 )
 
 type RSS struct {
@@ -17,19 +19,13 @@ type RSS struct {
 }
 
 type Channel struct {
-	Title         string `xml:"title"`
-	Link          string `xml:"link"`
-	Description   string `xml:"description"`
-	Language      string `xml:"language"`
-	LastBuildDate string `xml:"lastBuildDate"`
-	Items         []Item `xml:"item"`
+	Post []Post `xml:"item"`
 }
 
-type Item struct {
+type Post struct {
 	Title       string `xml:"title"`
 	Link        string `xml:"link"`
 	PubDate     string `xml:"pubDate"`
-	GUID        string `xml:"guid"`
 	Description string `xml:"description"`
 }
 
@@ -57,6 +53,7 @@ func fetchFeedWorker(db *database.Queries, collectionConcurrency int, collection
 
 func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 	defer wg.Done()
+	fmt.Println("Start feed scrapping...")
 	rss, err := fetchFromFeed(feed.Url)
 
 	if err != nil {
@@ -64,7 +61,35 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		return
 	}
 
-	fmt.Printf("Feed Title: %s\n", rss.Channel.Title)
+	for _, post := range rss.Channel.Post {
+		var publishedAt time.Time
+
+		if post.PubDate != "" {
+			parsedTime, err := parsePublishedAt(post.PubDate)
+			if err != nil {
+				log.Printf("Error parsing published date for post %s: %v", post.Title, err)
+				// set published date to now
+				publishedAt = time.Now().UTC()
+			} else {
+				publishedAt = parsedTime
+			}
+		}
+
+		_, err := db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			Title:       post.Title,
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Url:         post.Link,
+			Description: post.Description,
+			PublishedAt: publishedAt,
+			FeedID:      feed.ID,
+		})
+
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 
 	feed.LastFetchedAt.Time = time.Now().UTC()
 	feed.LastFetchedAt.Valid = true
@@ -73,9 +98,12 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		UpdatedAt:     time.Now().UTC(),
 		ID:            feed.ID,
 	})
+
+	fmt.Println("Finish feed scrapping...")
 }
 
 func fetchFromFeed(url string) (RSS, error) {
+	fmt.Println("Fetching from feed...")
 	res, err := http.Get(url)
 
 	if err != nil {
@@ -93,4 +121,31 @@ func fetchFromFeed(url string) (RSS, error) {
 	}
 
 	return rss, nil
+}
+
+func parsePublishedAt(dateStr string) (time.Time, error) {
+	dateStr = strings.TrimSpace(dateStr)
+
+	formats := []string{
+		time.RFC1123Z,               // "Mon, 02 Jan 2006 15:04:05 -0700"
+		time.RFC1123,                // "Mon, 02 Jan 2006 15:04:05 MST"
+		time.RFC822Z,                // "02 Jan 06 15:04 -0700"
+		time.RFC822,                 // "02 Jan 06 15:04 MST"
+		"2006-01-02T15:04:05Z07:00", // ISO 8601 / RFC 3339
+		"2006-01-02T15:04:05Z",      // ISO 8601 / RFC 3339 without timezone
+		"2006-01-02 15:04:05",       // MySQL datetime format
+		"2006-01-02",                // Just date
+		"02 Jan 2006 15:04:05 MST",
+		"02 Jan 2006 15:04:05 -0700",
+		"02.01.2006 15:04:05",
+		"Monday, January 2, 2006",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
 }

@@ -58,7 +58,7 @@ func main() {
 	}
 
 	const collectionConcurrency = 10
-	const collectionInterval = time.Minute
+	const collectionInterval = time.Second * 5
 	go fetchFeedWorker(dbQueries, collectionConcurrency, collectionInterval)
 
 	log.Printf("Serving on port: %s\n", PORT)
