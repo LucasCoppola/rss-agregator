@@ -49,6 +49,8 @@ func main() {
 	mux.HandleFunc("POST /v1/feed_follows", apiCfg.middlewareAuth(apiCfg.followFeedHandler))
 	mux.HandleFunc("DELETE /v1/feed_follows/{feedFollowId}", apiCfg.middlewareAuth(apiCfg.unfollowFeedHandler))
 
+	mux.HandleFunc("GET /v1/posts", apiCfg.middlewareAuth(apiCfg.getPostsByUser))
+
 	mux.HandleFunc("GET /v1/healthz", healthzHandler)
 	mux.HandleFunc("GET /v1/err", errorHandler)
 
@@ -58,7 +60,7 @@ func main() {
 	}
 
 	const collectionConcurrency = 10
-	const collectionInterval = time.Second * 5
+	const collectionInterval = time.Minute
 	go fetchFeedWorker(dbQueries, collectionConcurrency, collectionInterval)
 
 	log.Printf("Serving on port: %s\n", PORT)

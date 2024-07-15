@@ -52,8 +52,8 @@ func fetchFeedWorker(db *database.Queries, collectionConcurrency int, collection
 }
 
 func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
+	fmt.Println("Start feed scraping...")
 	defer wg.Done()
-	fmt.Println("Start feed scrapping...")
 	rss, err := fetchFromFeed(feed.Url)
 
 	if err != nil {
@@ -81,13 +81,13 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 			CreatedAt:   time.Now().UTC(),
 			UpdatedAt:   time.Now().UTC(),
 			Url:         post.Link,
-			Description: post.Description,
+			Left:        post.Description,
 			PublishedAt: publishedAt,
 			FeedID:      feed.ID,
 		})
 
-		if err != nil {
-			fmt.Println(err)
+		if err != nil && err.Error() != `pq: duplicate key value violates unique constraint "posts_url_key"` {
+			fmt.Println(err.Error())
 		}
 	}
 
@@ -99,11 +99,10 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		ID:            feed.ID,
 	})
 
-	fmt.Println("Finish feed scrapping...")
+	fmt.Println("Finish feed scraping...")
 }
 
 func fetchFromFeed(url string) (RSS, error) {
-	fmt.Println("Fetching from feed...")
 	res, err := http.Get(url)
 
 	if err != nil {
